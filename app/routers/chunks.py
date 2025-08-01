@@ -1,69 +1,70 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends, Query, status
 from uuid import UUID
-from datetime import datetime
-
+from typing import Optional
 from app.models import Chunk, CreateChunk, UpdateChunk
-from app.core.dependencies import get_library_repository
 from app.repositories.library_repository import LibraryRepository
-from app.services.embedding_service import embedding_service
+from app.services.embedding_service import EmbeddingService
+from app.core.dependencies import get_library_repository, get_embedding_service
 
 router = APIRouter()
 
-
-@router.post("/", response_model=Chunk, status_code=201)
+@router.post("/", response_model=Chunk, status_code=status.HTTP_201_CREATED)
 async def create_chunk(
     chunk_data: CreateChunk,
-    document_id: UUID = Query(..., description="ID of the document to add the chunk to"),
-    repo: LibraryRepository = Depends(get_library_repository)
+    document_id: UUID = Query(..., description="Document ID to add chunk to"),
+    repo: LibraryRepository = Depends(get_library_repository),
+    embedding_service: EmbeddingService = Depends(get_embedding_service)
 ):
     """Create a new chunk in a document"""
-    # Check if document exists
+    
+    # Verify document exists
     document = repo.get_document(document_id)
     if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
-    # Handle embedding generation
-    embedding = chunk_data.embedding
-    
-    if embedding is None and chunk_data.auto_embed:
-        # Generate embedding using Cohere API
-        if not embedding_service.is_available():
-            raise HTTPException(
-                status_code=400, 
-                detail="Embedding service not available. Please provide manual embedding or configure Cohere API key."
-            )
-        
-        try:
-            embedding = await embedding_service.generate_embedding(chunk_data.text)
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to generate embedding: {str(e)}"
-            )
-    elif embedding is None:
         raise HTTPException(
-            status_code=400,
-            detail="Either provide embedding vector or set auto_embed=true"
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Document not found"
         )
     
-    # Create chunk object
-    chunk = Chunk(
-        document_id=document_id,
-        text=chunk_data.text,
-        embedding=embedding,
-        metadata=chunk_data.metadata,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
-    )
-    
-    # Save chunk via repository
-    created_chunk = repo.create_chunk(chunk, document_id)
-    if not created_chunk:
-        raise HTTPException(status_code=500, detail="Failed to create chunk")
-    
-    return created_chunk
-
+    try:
+        # Handle auto-embedding
+        embedding = chunk_data.embedding
+        if chunk_data.auto_embed:
+            if not chunk_data.text.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Text cannot be empty when auto_embed is enabled"
+                )
+            try:
+                embedding = await embedding_service.generate_embedding(chunk_data.text)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to generate embedding: {str(e)}"
+                )
+        elif not embedding:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Either provide embedding vector or set auto_embed=true"
+            )
+        
+        # Create chunk with processed embedding
+        chunk = Chunk(
+            text=chunk_data.text,
+            embedding=embedding,
+            metadata=chunk_data.metadata,
+            document_id=document_id
+        )
+        
+        result = repo.create_chunk(chunk, document_id)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to create chunk"
+        )
 
 @router.get("/{chunk_id}", response_model=Chunk)
 async def get_chunk(
@@ -73,98 +74,97 @@ async def get_chunk(
     """Get a chunk by ID"""
     chunk = repo.get_chunk(chunk_id)
     if not chunk:
-        raise HTTPException(status_code=404, detail="Chunk not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Chunk not found"
+        )
     return chunk
 
-
-@router.get("/document/{document_id}", response_model=List[Chunk])
+@router.get("/document/{document_id}", response_model=list[Chunk])
 async def get_chunks_by_document(
     document_id: UUID,
     repo: LibraryRepository = Depends(get_library_repository)
 ):
-    """Get all chunks in a document"""
+    """Get all chunks for a document"""
     document = repo.get_document(document_id)
     if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
-    chunks = repo.get_document_chunks(document_id)
-    return chunks
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Document not found"
+        )
+    return repo.get_document_chunks(document_id)
 
-
-@router.get("/library/{library_id}", response_model=List[Chunk])
+@router.get("/library/{library_id}", response_model=list[Chunk])
 async def get_chunks_by_library(
     library_id: UUID,
     repo: LibraryRepository = Depends(get_library_repository)
 ):
-    """Get all chunks in a library"""
+    """Get all chunks for a library"""
     library = repo.get_library(library_id)
     if not library:
-        raise HTTPException(status_code=404, detail="Library not found")
-    
-    chunks = repo.get_library_chunks(library_id)
-    return chunks
-
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Library not found"
+        )
+    return repo.get_library_chunks(library_id)
 
 @router.put("/{chunk_id}", response_model=Chunk)
 async def update_chunk(
     chunk_id: UUID,
     chunk_data: UpdateChunk,
-    repo: LibraryRepository = Depends(get_library_repository)
+    repo: LibraryRepository = Depends(get_library_repository),
+    embedding_service: EmbeddingService = Depends(get_embedding_service)
 ):
     """Update a chunk"""
-    existing_chunk = repo.get_chunk(chunk_id)
-    if not existing_chunk:
-        raise HTTPException(status_code=404, detail="Chunk not found")
+    chunk = repo.get_chunk(chunk_id)
+    if not chunk:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Chunk not found"
+        )
     
-    # Handle embedding regeneration if text is updated
-    embedding = chunk_data.embedding
-    text = chunk_data.text or existing_chunk.text
-    
-    if chunk_data.text and chunk_data.auto_embed:
-        # Regenerate embedding using Cohere API
-        if not embedding_service.is_available():
-            raise HTTPException(
-                status_code=400,
-                detail="Embedding service not available. Please provide manual embedding or configure Cohere API key."
-            )
+    try:
+        # Handle auto-embedding for updates
+        update_data = chunk_data.dict(exclude_unset=True)
+        if chunk_data.auto_embed and chunk_data.text:
+            if not chunk_data.text.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Text cannot be empty when auto_embed is enabled"
+                )
+            try:
+                update_data['embedding'] = await embedding_service.generate_embedding(chunk_data.text)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to generate embedding: {str(e)}"
+                )
         
-        try:
-            embedding = await embedding_service.generate_embedding(text)
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to generate embedding: {str(e)}"
-            )
-    elif embedding is None:
-        # Keep existing embedding if no new one provided
-        embedding = existing_chunk.embedding
-    
-    # Prepare update data
-    update_data = {}
-    if chunk_data.text is not None:
-        update_data['text'] = text
-    if embedding is not None:
-        update_data['embedding'] = embedding
-    if chunk_data.metadata is not None:
-        update_data['metadata'] = chunk_data.metadata
-    
-    update_data['updated_at'] = datetime.utcnow()
-    
-    # Update chunk
-    updated_chunk = repo.update_chunk(chunk_id, **update_data)
-    if not updated_chunk:
-        raise HTTPException(status_code=404, detail="Chunk not found")
-    
-    return updated_chunk
+        # Remove auto_embed from update data as it's not stored in the model
+        update_data.pop('auto_embed', None)
+        
+        updated_chunk = repo.update_chunk(chunk_id, **update_data)
+        return updated_chunk
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update chunk: {str(e)}"
+        )
 
-
-@router.delete("/{chunk_id}")
+@router.delete("/{chunk_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chunk(
     chunk_id: UUID,
     repo: LibraryRepository = Depends(get_library_repository)
 ):
     """Delete a chunk"""
-    success = repo.delete_chunk(chunk_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Chunk not found")
-    return {"message": "Chunk deleted successfully"}
+    chunk = repo.get_chunk(chunk_id)
+    if not chunk:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Chunk not found"
+        )
+    repo.delete_chunk(chunk_id)
+    return None
