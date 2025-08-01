@@ -24,6 +24,25 @@ A high-performance REST API for vector database operations, supporting both manu
 - **🔧 Metadata Filtering**: Filter search results by chunk metadata
 - **🔄 Dynamic Indexing**: Switch index types and rebuild on demand
 
+### 🎯 Extra Features (Production Enhancements)
+
+#### 1. Advanced Metadata Filtering ⭐⭐⭐⭐⭐
+- **12+ Filter Operators**: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$contains`, `$regex`, `$exists`, `$date_after`, `$date_before`, `$date_range`
+- **Nested Field Access**: Use dot notation (e.g., `author.name`, `user.profile.email`)
+- **Complex Conditions**: Multi-condition AND logic with mixed operators
+- **Date Parsing**: Support for ISO, common date formats with intelligent parsing
+- **Performance Optimized**: Smart pre-filtering with 3x result expansion
+- **Type Safety**: Handles strings, numbers, booleans, arrays, dates seamlessly
+
+#### 2. Python SDK Client ⭐⭐⭐⭐⭐
+- **Complete API Coverage**: Full CRUD operations for Libraries, Documents, Chunks
+- **Professional Architecture**: Dataclass models, exception hierarchy, type hints
+- **Advanced Search**: Vector similarity with metadata filtering and auto-embedding
+- **Bulk Operations**: Create libraries with documents and chunks in one call
+- **Error Handling**: Comprehensive exception handling with detailed error messages
+- **Easy Installation**: `pip install stackai-sdk` (or local setup with `setup.py`)
+- **Rich Examples**: Comprehensive usage examples and documentation
+
 ## 🚀 Quick Start
 
 ### Option 1: Docker (Recommended)
@@ -214,6 +233,110 @@ results = requests.post(f"{BASE_URL}/search/libraries/{library['id']}/search", j
     "auto_embed": True,
     "k": 10
 })
+```
+
+## 🎯 Advanced Feature Examples
+
+### Advanced Metadata Filtering
+
+The enhanced metadata filtering supports complex queries with MongoDB-style operators:
+
+```python
+# Complex filtering example
+import requests
+
+# Search with advanced metadata filter
+results = requests.post(f"{BASE_URL}/search/libraries/{library_id}/search", json={
+    "query_embedding": [0.1, 0.2, 0.3, 0.4, 0.5],
+    "k": 10,
+    "metadata_filter": {
+        # Nested field access with dot notation
+        "author.institution": "MIT",
+        
+        # Numeric comparisons
+        "rating": {"$gte": 4.5},
+        "citations": {"$gte": 100, "$lte": 1000},
+        
+        # String operations
+        "title": {"$contains": "machine learning"},
+        "category": {"$in": ["AI", "ML", "DL"]},
+        
+        # Date operations
+        "published_date": {"$date_after": "2024-01-01"},
+        "updated_at": {"$date_range": {
+            "start": "2024-01-01",
+            "end": "2024-12-31"
+        }},
+        
+        # Boolean and existence checks
+        "is_published": True,
+        "peer_reviewed": {"$exists": True},
+        
+        # Regular expressions
+        "research_phase": {"$regex": "^prod"}
+    }
+}).json()
+```
+
+### Python SDK Usage
+
+Install and use the comprehensive Python SDK:
+
+```bash
+# Install the SDK
+cd stackai
+pip install -e .
+
+# Or use setup.py
+python setup.py install
+```
+
+```python
+from stackai_sdk import StackAIClient
+
+# Initialize client
+client = StackAIClient(base_url="http://localhost:8000")
+
+# Create library with bulk documents
+library = client.create_library_with_documents(
+    library_name="AI Research Papers",
+    documents=[
+        {
+            "title": "Transformer Networks",
+            "metadata": {"category": "NLP", "year": 2024},
+            "chunks": [
+                {
+                    "text": "Attention is all you need for transformer architectures",
+                    "metadata": {"section": "abstract", "importance": "high"}
+                },
+                {
+                    "text": "Multi-head attention mechanisms enable parallel processing",
+                    "metadata": {"section": "methodology", "importance": "medium"}
+                }
+            ]
+        }
+    ],
+    auto_embed=True,  # Use Cohere API for embeddings
+    index_type="kdtree"
+)
+
+# Advanced search with metadata filtering
+results = client.search(
+    library_id=library.id,
+    query_text="What are attention mechanisms?",
+    auto_embed=True,
+    k=5,
+    metadata_filter={
+        "importance": "high",
+        "section": {"$in": ["abstract", "conclusion"]}
+    }
+)
+
+# Process results
+for result in results:
+    print(f"Text: {result.chunk.text}")
+    print(f"Similarity: {result.similarity:.3f}")
+    print(f"Metadata: {result.chunk.metadata}")
 ```
 
 ## 🧠 Index Algorithms
