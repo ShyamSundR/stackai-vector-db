@@ -1,10 +1,10 @@
-# 🏗️ StackAI Vector Database Architecture
+# StackAI Vector Database Architecture
 
-## 📋 Overview
+## Overview
 
 StackAI is a production-ready vector database built with FastAPI, featuring custom indexing algorithms, thread-safe operations, and comprehensive testing. The architecture follows clean separation of concerns with layered design patterns.
 
-## 🎯 Core Architecture Principles
+## Core Architecture Principles
 
 - **Domain-Driven Design**: Clear separation between API, business logic, and data layers
 - **SOLID Principles**: Single responsibility, dependency injection, interface segregation
@@ -12,11 +12,11 @@ StackAI is a production-ready vector database built with FastAPI, featuring cust
 - **Thread Safety**: RLock-based concurrency control
 - **Type Safety**: Full static typing with Pydantic validation
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```mermaid
 graph TB
-    subgraph "🌐 API Layer"
+    subgraph "API Layer"
         A[FastAPI Application]
         B["/api/v1/libraries"]
         C["/api/v1/documents"]
@@ -25,7 +25,7 @@ graph TB
         F["/health"]
     end
     
-    subgraph "🔧 Service Layer"
+    subgraph "Service Layer"
         G[LibraryService]
         H[DocumentService]
         I[ChunkService]
@@ -33,30 +33,19 @@ graph TB
         K[EmbeddingService]
     end
     
-    subgraph "📊 Index Algorithms"
-        L[BaseIndex]
-        M[BruteForceIndex]
-        N[KDTreeIndex]
-        O[MetadataFilter]
+    subgraph "Repository Layer"
+        L[LibraryRepository]
+        M[Thread-Safe Storage]
     end
     
-    subgraph "💾 Data Layer"
-        P[LibraryRepository]
-        Q["In-Memory Storage<br/>Thread-Safe with RLock"]
-        R["Libraries Dict"]
-        S["Documents Dict"]
-        T["Chunks Dict"]
+    subgraph "Index Layer"
+        N[BaseIndex]
+        O[BruteForceIndex]
+        P[KDTreeIndex]
     end
     
-    subgraph "🔌 External Services"
-        U[Cohere API]
-        V[Embedding Generation]
-    end
-    
-    subgraph "🐳 Infrastructure"
-        W[Docker Container]
-        X[GitHub Actions CI/CD]
-        Y[Pytest Test Suite]
+    subgraph "External Services"
+        Q[Cohere API]
     end
     
     A --> B
@@ -69,375 +58,388 @@ graph TB
     C --> H
     D --> I
     E --> J
+    
+    G --> L
+    H --> L
+    I --> L
+    J --> L
+    I --> K
     E --> K
     
-    G --> P
-    H --> P
-    I --> P
-    J --> L
-    K --> U
+    J --> N
+    N --> O
+    N --> P
+    
+    K --> Q
     
     L --> M
-    L --> N
-    J --> O
-    
-    P --> Q
-    Q --> R
-    Q --> S
-    Q --> T
-    
-    U --> V
-    
-    W -.-> A
-    X -.-> Y
-    Y -.-> A
 ```
 
-## 🔄 Request Flow Architecture
+## Component Details
+
+### API Layer (FastAPI Routers)
+
+**Purpose**: Handle HTTP requests, validation, and response formatting
+
+**Components**:
+- `libraries.py`: CRUD operations for library management
+- `documents.py`: Document lifecycle within libraries
+- `chunks.py`: Text chunk operations with embedding support
+- `search.py`: Vector similarity search and index management
+
+**Key Features**:
+- Automatic OpenAPI documentation generation
+- Request/response validation with Pydantic
+- Dependency injection for service layers
+- Consistent error handling with proper HTTP status codes
+
+### Service Layer (Business Logic)
+
+**Purpose**: Orchestrate business operations and coordinate between components
+
+**Components**:
+- `LibraryService`: Library lifecycle and validation
+- `DocumentService`: Document operations and library relationships
+- `ChunkService`: Chunk processing with embedding coordination
+- `VectorIndexService`: Index management and search orchestration
+- `EmbeddingService`: Cohere API integration for auto-embedding
+
+**Design Patterns**:
+- **Service Layer Pattern**: Encapsulates business logic
+- **Facade Pattern**: Simplifies complex subsystem interactions
+- **Strategy Pattern**: Pluggable embedding strategies (manual vs auto)
+
+### Repository Layer (Data Access)
+
+**Purpose**: Centralized, thread-safe data storage and retrieval
+
+**Implementation**: `LibraryRepository`
+- **Thread Safety**: `threading.RLock()` protects all operations
+- **In-Memory Storage**: Dictionaries for fast access with relationship tracking
+- **CRUD Operations**: Complete lifecycle management for all entities
+- **Data Integrity**: Cascading operations and referential consistency
+
+**Data Structure**:
+```python
+{
+    '_libraries': Dict[UUID, Library],
+    '_documents': Dict[UUID, Document], 
+    '_chunks': Dict[UUID, Chunk],
+    '_library_documents': Dict[UUID, Set[UUID]],
+    '_document_chunks': Dict[UUID, Set[UUID]],
+    '_document_library': Dict[UUID, UUID],
+    '_chunk_document': Dict[UUID, UUID]
+}
+```
+
+### Index Layer (Vector Search)
+
+**Purpose**: Efficient similarity search over high-dimensional vectors
+
+**Base Implementation**: `BaseIndex`
+- Abstract interface for all index types
+- Standardized search operations with multiple similarity metrics
+- Thread-safe operations with consistent API
+
+**Algorithms**:
+
+1. **BruteForceIndex**
+   - **Method**: Linear scan through all vectors
+   - **Complexity**: O(n) search, O(1) indexing
+   - **Best For**: Small datasets (<10K chunks), guaranteed accuracy
+   - **Memory**: Minimal overhead
+
+2. **KDTreeIndex** 
+   - **Method**: Binary space partitioning tree
+   - **Complexity**: O(log n) average search, O(n log n) indexing
+   - **Best For**: Medium datasets (1K-100K chunks), moderate dimensions
+   - **Memory**: Tree structure overhead
+
+**Similarity Metrics**:
+- **Cosine Similarity**: Angle-based, ideal for text embeddings
+- **Euclidean Distance**: L2 norm, magnitude-sensitive
+- **Dot Product**: Fast computation, assumes normalized vectors
+
+## Request Flow
+
+### Chunk Creation with Auto-Embedding
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant API as FastAPI Router
-    participant Service as Service Layer
-    participant Repo as Repository
-    participant Index as Vector Index
-    participant Cohere as Cohere API
+    participant ChunkRouter
+    participant ChunkService
+    participant EmbeddingService
+    participant LibraryRepository
+    participant CoherAPI
     
-    Note over Client,Cohere: Vector Search Request Flow
+    Client->>ChunkRouter: POST /chunks/?document_id=123
+    ChunkRouter->>ChunkService: create_chunk(chunk_data)
     
-    Client->>API: POST /api/v1/search/{library_id}/search
-    API->>Service: validate_request()
-    Service->>Repo: get_library(library_id)
-    
-    alt Auto-embed query text
-        Service->>Cohere: generate_embedding(query_text)
-        Cohere-->>Service: embedding_vector
+    alt auto_embed=true
+        ChunkService->>EmbeddingService: generate_embedding(text)
+        EmbeddingService->>CoherAPI: embed(text, model)
+        CoherAPI-->>EmbeddingService: vector[1024]
+        EmbeddingService-->>ChunkService: embedding
+    else manual embedding
+        Note over ChunkService: Use provided embedding
     end
     
-    Service->>Index: search(query_vector, k, similarity_metric)
-    Index->>Index: calculate_similarities()
-    Index->>Index: apply_metadata_filter()
-    Index-->>Service: search_results[]
+    ChunkService->>LibraryRepository: create_chunk(chunk)
+    LibraryRepository-->>ChunkService: created_chunk
+    ChunkService-->>ChunkRouter: chunk
+    ChunkRouter-->>Client: 201 Created
+```
+
+### Vector Search Operation
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant SearchRouter
+    participant VectorIndexService
+    participant EmbeddingService
+    participant Index
+    participant LibraryRepository
     
-    Service-->>API: formatted_results
-    API-->>Client: HTTP 200 + search_results
+    Client->>SearchRouter: POST /search
+    SearchRouter->>VectorIndexService: search_similar_chunks()
+    
+    alt query_text provided
+        VectorIndexService->>EmbeddingService: generate_embedding(query_text)
+        EmbeddingService-->>VectorIndexService: query_vector
+    else query_embedding provided
+        Note over VectorIndexService: Use provided vector
+    end
+    
+    VectorIndexService->>Index: search(query_vector, k, metric)
+    Index->>LibraryRepository: get_chunks_for_library()
+    LibraryRepository-->>Index: chunk_list
+    Index-->>VectorIndexService: search_results
+    VectorIndexService-->>SearchRouter: ranked_results
+    SearchRouter-->>Client: search_response
 ```
 
-## 🧩 Component Details
+## Concurrency Strategy
 
-### 🌐 API Layer (FastAPI)
-- **Purpose**: HTTP request handling, validation, serialization
-- **Components**: Router modules for each entity type
-- **Features**: Auto-generated OpenAPI docs, request/response validation
-- **Design Pattern**: RESTful API with dependency injection
+### Thread Safety Model
 
-### 🔧 Service Layer 
-- **Purpose**: Business logic orchestration, cross-cutting concerns
-- **Components**: Entity-specific services + specialized services
-- **Responsibilities**: 
-  - Workflow coordination
-  - Data validation and transformation
-  - External service integration
-  - Error handling and logging
+**Repository Level**:
+- `threading.RLock()` (reentrant lock) protects all data operations
+- Single lock per repository instance ensures consistency
+- Granular locking would add complexity without significant benefit for in-memory storage
 
-### 📊 Index Algorithms
-- **Purpose**: Efficient vector similarity search
-- **Implementation**: Custom algorithms without external libraries
-- **Strategy Pattern**: Pluggable index types via BaseIndex interface
-- **Algorithms**:
-  - **BruteForceIndex**: O(n) linear scan, guaranteed accuracy
-  - **KDTreeIndex**: O(log n) tree search, optimized for low dimensions
+**Why RLock vs AsyncIO**:
+- **RLock**: Simpler reasoning, proven reliability, allows reentrant calls
+- **AsyncIO**: Would require async/await throughout, more complex for CPU-bound vector operations
+- **Hybrid**: FastAPI handles async HTTP while internal operations use synchronous thread-safe code
 
-### 💾 Data Layer
-- **Purpose**: Data persistence and retrieval
-- **Pattern**: Repository pattern with in-memory storage
-- **Thread Safety**: `threading.RLock` for concurrent access
-- **Storage Structure**: Nested dictionaries with UUID keys
+**Lock Granularity**:
+- **Coarse-grained**: Single repository lock
+- **Benefits**: Deadlock prevention, simpler reasoning, atomic multi-entity operations
+- **Trade-offs**: Reduced parallelism for independent operations
 
-### 🔌 External Integrations
-- **Cohere API**: Text-to-embedding transformation
-- **Graceful Degradation**: Service availability checks
-- **Error Handling**: Proper exception handling for API failures
+### Performance Considerations
 
-## 🔒 Concurrency & Thread Safety
+**Memory Management**:
+- Deep copying for data isolation
+- Efficient dictionary-based lookups
+- Relationship tracking with sets for O(1) membership
 
-### Thread Safety Strategy
+**Index Performance**:
+- Lazy index building only when needed
+- Configurable similarity metrics
+- Memory-efficient vector storage
+
+## Custom Algorithm Rationale
+
+### Why Not FAISS/Pinecone?
+
+**Educational Value**:
+- Demonstrates understanding of vector search internals
+- Shows algorithm implementation skills
+- Allows customization for specific requirements
+
+**Control & Flexibility**:
+- Custom similarity metrics
+- Tailored data structures
+- No external service dependencies
+- Simplified deployment
+
+**Trade-offs**:
+- **Performance**: FAISS would be faster for large-scale operations
+- **Features**: Missing advanced features like LSH, PQ compression
+- **Scalability**: Custom implementations have natural limits
+- **Maintenance**: More code to maintain and test
+
+**Production Considerations**:
+- Current implementation suitable for proof-of-concept and medium-scale applications
+- Would recommend FAISS/Pinecone for production at scale
+- Easy migration path through abstract base classes
+
+## Metadata Filtering Architecture
+
+### Filter Engine Design
+
+**MongoDB-Style Operators**:
 ```python
-class LibraryRepository:
-    def __init__(self):
-        self._lock = threading.RLock()  # Reentrant lock
-        self._libraries: Dict[UUID, Library] = {}
-        
-    def create_library(self, library_data: CreateLibrary) -> Library:
-        with self._lock:  # Atomic operations
-            # Thread-safe creation logic
-            return library
-```
-
-### Concurrency Design Decisions
-
-#### ✅ **Threading.RLock (Chosen)**
-**Pros:**
-- Simple, proven concurrency primitive
-- Reentrant locks prevent deadlocks
-- Low overhead for in-memory operations
-- Synchronous API simplicity
-
-**Cons:**
-- Blocks threads during I/O operations
-- Limited scalability under heavy concurrent load
-
-#### ❌ **AsyncIO (Not Chosen)**
-**Pros:**
-- Better I/O concurrency
-- Lower memory overhead per request
-
-**Cons:**
-- Complex async/await propagation through entire stack
-- NumPy operations not async-compatible
-- Embedding service calls would still block
-- Over-engineering for current requirements
-
-#### ❌ **Actor Model (Not Chosen)**
-**Pros:**
-- No shared state, no locks needed
-- Excellent scalability
-
-**Cons:**
-- Significant architectural complexity
-- Message passing overhead
-- Overkill for current scale requirements
-
-### Lock Granularity Strategy
-
-```ascii
-Repository Level (Chosen)
-├── Single RLock for all operations
-├── Simple deadlock prevention
-├── Adequate performance for current scale
-└── Easy to reason about
-
-vs.
-
-Entity Level (Not Chosen)
-├── Separate locks per entity type
-├── Higher concurrency potential
-├── Complex deadlock prevention needed
-└── Premature optimization
-```
-
-## 🚫 Why No External Vector Libraries?
-
-### Design Decision: Custom Implementation
-
-#### ❌ **FAISS (Not Used)**
-**Pros:**
-- Industry-standard performance
-- GPU acceleration support
-- Advanced indexing algorithms (LSH, HNSW)
-
-**Cons:**
-- **Heavy dependency**: 100MB+ package size
-- **Platform constraints**: Complex compilation requirements
-- **Over-engineering**: Overkill for proof-of-concept scale
-- **Learning objective**: Assignment emphasizes understanding algorithms
-
-#### ❌ **Pinecone (Not Used)**
-**Pros:**
-- Managed cloud service
-- Horizontal scaling built-in
-- Production-grade reliability
-
-**Cons:**
-- **External dependency**: Network latency and availability
-- **Cost implications**: Usage-based pricing
-- **Control limitations**: Less customization flexibility
-- **Assignment requirements**: Contradicts self-contained requirement
-
-#### ✅ **Custom Implementation (Chosen)**
-**Benefits:**
-- **Educational value**: Deep understanding of vector search algorithms
-- **Control**: Full customization of similarity metrics and optimizations
-- **Simplicity**: No external service dependencies
-- **Performance**: Optimized for specific use case requirements
-- **Deployment**: Self-contained Docker deployment
-
-### Algorithm Implementation Trade-offs
-
-```ascii
-BruteForceIndex
-├── Time Complexity: O(n)
-├── Space Complexity: O(n)  
-├── Accuracy: 100% (guaranteed optimal)
-├── Use Case: Small datasets, exact results required
-└── Implementation: Simple linear scan
-
-vs.
-
-KDTreeIndex  
-├── Time Complexity: O(log n) average, O(n) worst case
-├── Space Complexity: O(n)
-├── Accuracy: ~95% (approximate with pruning)
-├── Use Case: Medium datasets, speed over perfect accuracy
-└── Implementation: Binary space partitioning tree
-```
-
-## 📊 Advanced Metadata Filtering
-
-### MongoDB-Style Query Operators
-```python
-# Complex filtering capabilities
-metadata_filter = {
-    "category": {"$in": ["AI", "ML"]},
-    "score": {"$gte": 0.8},
-    "author.name": {"$regex": "^John"},
-    "tags": {"$contains": "python"},
-    "created_at": {"$date_after": "2024-01-01"}
+{
+    "field": {"$operator": value},
+    "nested.field": {"$operator": value},
+    "multiple_conditions": "AND logic"
 }
 ```
 
-### Filter Implementation Strategy
-- **Nested field access**: Dot notation for deep object traversal
-- **Type-aware comparisons**: Date, numeric, string-specific operators
-- **Performance optimization**: Early termination on filter failures
-- **Extensibility**: Easy addition of new operators
+**Supported Operators**:
+- **Comparison**: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`
+- **Membership**: `$in`, `$nin`
+- **String**: `$contains`, `$regex`
+- **Existence**: `$exists`
+- **Date**: `$date_after`, `$date_before`, `$date_range`
 
-## 🐳 Infrastructure & DevOps
+**Performance Strategy**:
+1. **Pre-filtering**: Apply metadata filters before vector search
+2. **Result Expansion**: Request 3x more results to account for filtering
+3. **Lazy Evaluation**: Only evaluate complex conditions when needed
 
-### Docker Strategy
-```dockerfile
-# Multi-stage build for optimization
-FROM python:3.11-slim as builder
-# ... dependency installation
+## Docker Strategy
 
-FROM python:3.11-slim as runtime  
-# ... optimized runtime image
-```
+### Multi-Stage Dockerfile
 
-**Benefits:**
-- **Reproducible deployments**: Consistent environment across platforms
-- **Resource efficiency**: Slim base images, multi-stage builds
-- **Security**: Non-root user, minimal attack surface
-- **Scalability**: Container orchestration ready
+**Build Stage**:
+- Python 3.11 slim base image
+- Dependency installation with pip caching
+- Non-root user creation for security
 
-### CI/CD Pipeline Architecture
+**Runtime Stage**:
+- Minimal attack surface
+- Health check integration
+- Proper signal handling for graceful shutdown
 
-```ascii
-GitHub Actions Pipeline
-├── Code Quality (Black, flake8, mypy)
-├── Unit Tests (Python 3.10, 3.11, 3.12)
-├── Integration Tests (API workflow testing)  
-├── Docker Tests (Container deployment verification)
-├── Security Scanning (safety, bandit)
-├── Performance Tests (Basic load testing)
-└── Automated Deployment (Staging/Production)
-```
+**Benefits**:
+- Smaller final image size
+- Security through principle of least privilege
+- Production-ready configuration
 
-## 🔮 Scalability Considerations
+## CI/CD Pipeline
 
-### Current Architecture Limitations
-1. **Memory Constraints**: In-memory storage limited by RAM
-2. **Single-Node**: No horizontal scaling capability
-3. **Synchronous Processing**: Thread-based concurrency limits
+### GitHub Actions Workflow
 
-### Future Enhancement Pathways
+**Stages**:
+1. **Linting**: Black, isort, flake8, mypy
+2. **Unit Tests**: pytest with coverage reporting
+3. **Integration Tests**: Full API workflow testing
+4. **Docker Tests**: Container build and deployment verification
+5. **Security Scanning**: Safety and Bandit checks
+6. **Performance Tests**: Basic load testing
 
-#### 1. **Persistence Layer**
-```ascii
-In-Memory (Current)
-└── Fast access, volatile
+**Quality Gates**:
+- 80% code coverage requirement
+- All linting checks must pass
+- Integration tests validate end-to-end workflows
+- Docker containers must start and respond to health checks
 
-↓ Migration Path
+## Scalability Considerations
 
-Persistent Storage
-├── SQLite: Simple file-based persistence
-├── PostgreSQL: ACID compliance, pgvector extension
-└── Redis: In-memory + persistence hybrid
-```
+### Current Limitations
 
-#### 2. **Distributed Architecture**
-```ascii
-Single Node (Current)
-└── Simple deployment
+**Memory Bounds**:
+- In-memory storage limits dataset size
+- No data persistence across restarts
+- Single-node deployment only
 
-↓ Evolution
-
-Leader-Follower Cluster
-├── Read scalability
-├── High availability
-├── Data replication
-└── Load balancing
-```
-
-#### 3. **Advanced Indexing**
-```ascii
-Custom Algorithms (Current)
-├── BruteForce: O(n)
-└── KDTree: O(log n)
-
-↓ Enhancement
-
-Sophisticated Algorithms
-├── LSH (Locality Sensitive Hashing)
-├── HNSW (Hierarchical NSW)
-├── IVF (Inverted File Index)
-└── Product Quantization
-```
-
-## 🎯 Performance Characteristics
-
-### Benchmark Results (Estimated)
-```ascii
-Dataset Size    | BruteForce | KDTree  | Memory Usage
-----------------|------------|---------|-------------
-1K chunks       | 10ms       | 5ms     | 50MB
-10K chunks      | 100ms      | 20ms    | 500MB  
-100K chunks     | 1s         | 100ms   | 5GB
-1M chunks       | 10s        | 500ms   | 50GB
-```
-
-### Bottleneck Analysis
-1. **CPU Bound**: Vector similarity calculations
-2. **Memory Bound**: Large embedding storage requirements
-3. **I/O Bound**: Cohere API embedding generation
-
-## 🛡️ Security & Reliability
-
-### Security Measures
-- **Input Validation**: Pydantic schema enforcement
-- **API Key Management**: Environment variable configuration
-- **Error Handling**: Graceful degradation, no information leakage
-- **Dependency Scanning**: Automated vulnerability detection
-
-### Reliability Features
-- **Health Checks**: Comprehensive service monitoring
-- **Graceful Shutdown**: Proper resource cleanup
-- **Circuit Breaker Pattern**: Cohere API failure handling
-- **Comprehensive Testing**: 80%+ code coverage
-
-## 📈 Monitoring & Observability
-
-### Current Capabilities
-- **Health Endpoint**: Service status monitoring
-- **Structured Logging**: Request/response tracking
-- **Error Tracking**: Exception handling and reporting
+**Performance Bounds**:
+- Thread-based concurrency model
+- Custom index algorithms vs optimized libraries
+- No distributed search capabilities
 
 ### Future Enhancements
-- **Metrics Collection**: Prometheus/Grafana integration
-- **Distributed Tracing**: Request flow monitoring
-- **Performance Profiling**: Bottleneck identification
-- **Alerting System**: Proactive issue detection
 
----
+**Persistence Layer**:
+- Database integration (PostgreSQL with pgvector)
+- File-based persistence with crash recovery
+- Incremental index updates
 
-## 🎯 Summary
+**Distributed Architecture**:
+- Leader-follower replication for read scaling
+- Horizontal sharding for write scaling
+- Distributed consensus for consistency
 
-The StackAI Vector Database demonstrates a **pragmatic architecture** that balances:
+**Algorithm Improvements**:
+- Approximate Nearest Neighbor (ANN) algorithms
+- Hierarchical clustering for large datasets
+- GPU acceleration for vector operations
 
-- **Simplicity vs. Performance**: Custom algorithms provide educational value while meeting performance requirements
-- **Reliability vs. Complexity**: Thread-safe operations without over-engineering
-- **Flexibility vs. Constraints**: Extensible design within assignment parameters
-- **Current Needs vs. Future Growth**: Architecture supports natural evolution paths
+## Security & Reliability
 
-This architecture successfully delivers a **production-ready vector database** that emphasizes **code quality**, **testing coverage**, and **operational reliability** while maintaining the **flexibility to evolve** with changing requirements. 
+### Security Measures
+
+**Input Validation**:
+- Pydantic schemas for all API inputs
+- Type checking and bounds validation
+- SQL injection prevention (no direct SQL)
+
+**Access Control**:
+- No authentication implemented (stateless design)
+- Rate limiting not implemented (would add in production)
+- CORS configuration for cross-origin requests
+
+**Data Protection**:
+- No sensitive data persistence
+- Environment variable configuration
+- Secure defaults for production deployment
+
+### Reliability Features
+
+**Error Handling**:
+- Comprehensive exception catching
+- Proper HTTP status codes
+- Detailed error messages for debugging
+
+**Health Monitoring**:
+- Health check endpoint with service status
+- Embedding service availability checking
+- Docker health check integration
+
+**Graceful Degradation**:
+- Manual embedding fallback when Cohere unavailable
+- Service-level error isolation
+- Partial functionality during service outages
+
+## Performance Characteristics
+
+### Benchmark Expectations
+
+**Small Dataset (1K chunks)**:
+- Brute Force: ~10ms search latency
+- KD-Tree: ~5ms search latency
+- Index build: <100ms
+
+**Medium Dataset (100K chunks)**:
+- Brute Force: ~1s search latency
+- KD-Tree: ~50ms search latency  
+- Index build: ~10s
+
+**Memory Usage**:
+- ~1KB per chunk (text + metadata + embedding)
+- ~2x overhead for index structures
+- ~100MB for 100K chunks
+
+### Optimization Opportunities
+
+**Algorithmic**:
+- Implement LSH for high-dimensional data
+- Add approximate search options
+- Optimize memory layout for cache efficiency
+
+**System**:
+- Add result caching layer
+- Implement connection pooling for external APIs
+- Use memory mapping for large datasets
+
+**Monitoring**:
+- Add performance metrics collection
+- Implement request tracing
+- Monitor resource utilization patterns
+
+This architecture provides a solid foundation for a vector database while maintaining simplicity, educational value, and room for future enhancements. 
