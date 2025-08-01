@@ -4,7 +4,7 @@ from uuid import UUID
 from copy import deepcopy
 from datetime import datetime
 
-from app.models import Library, Document, Chunk
+from app.models import Library, Document, Chunk, CreateLibrary, DocumentCreate, CreateChunk
 
 
 class LibraryRepository:
@@ -26,18 +26,24 @@ class LibraryRepository:
     # Library CRUD Operations
 
     
-    def create_library(self, library: Library) -> Library:
+    def create_library(self, library_data: CreateLibrary) -> Library:
         """Create a new library"""
         with self._lock:
+            # Create a new Library object from CreateLibrary data
+            library = Library(
+                name=library_data.name,
+                metadata=library_data.metadata or {},
+                documents=[]
+            )
+            
             if library.id in self._libraries:
                 raise ValueError(f"Library with ID {library.id} already exists")
             
-            # Deep copy to prevent external modifications
-            library_copy = deepcopy(library)
-            self._libraries[library.id] = library_copy
+            # Store the library
+            self._libraries[library.id] = library
             self._library_documents[library.id] = set()
             
-            return deepcopy(library_copy)
+            return library
     
     def get_library(self, library_id: UUID) -> Optional[Library]:
         """Get a library by ID with all its documents and chunks"""
@@ -99,25 +105,32 @@ class LibraryRepository:
     # Document CRUD Operations
 
     
-    def create_document(self, document: Document, library_id: UUID) -> Optional[Document]:
+    def create_document(self, document_data: DocumentCreate) -> Optional[Document]:
         """Create a new document in a library"""
         with self._lock:
-            if library_id not in self._libraries:
+            if document_data.library_id not in self._libraries:
                 return None
+            
+            # Create a new Document object from DocumentCreate data
+            document = Document(
+                title=document_data.title,
+                metadata=document_data.metadata or {},
+                chunks=[],
+                library_id=document_data.library_id
+            )
             
             if document.id in self._documents:
                 raise ValueError(f"Document with ID {document.id} already exists")
             
-            # Deep copy and store
-            document_copy = deepcopy(document)
-            self._documents[document.id] = document_copy
+            # Store the document
+            self._documents[document.id] = document
             self._document_chunks[document.id] = set()
             
             # Update relationships
-            self._library_documents[library_id].add(document.id)
-            self._document_library[document.id] = library_id
+            self._library_documents[document_data.library_id].add(document.id)
+            self._document_library[document.id] = document_data.library_id
             
-            return deepcopy(document_copy)
+            return document
     
     def get_document(self, document_id: UUID) -> Optional[Document]:
         """Get a document by ID with all its chunks"""
