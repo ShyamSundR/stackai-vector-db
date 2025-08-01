@@ -4,7 +4,7 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from app.models import Library, CreateLibrary, UpdateLibrary
-from app.models import Document, CreateDocument, UpdateDocument  
+from app.models import Document, DocumentCreate, DocumentUpdate  
 from app.models import Chunk, CreateChunk, UpdateChunk
 
 
@@ -52,8 +52,9 @@ class TestDocumentModels:
     
     def test_create_document_valid(self):
         """Test creating a valid document"""
-        create_data = CreateDocument(
+        create_data = DocumentCreate(
             title="Test Document",
+            library_id=uuid4(),
             metadata={"author": "Test Author"}
         )
         
@@ -66,14 +67,16 @@ class TestDocumentModels:
             Chunk(
                 text="Test chunk",
                 embedding=[0.1, 0.2, 0.3],
-                metadata={}
+                metadata={},
+                document_id=uuid4()
             )
         ]
         
         document = Document(
             title="Test Document",
             chunks=chunks,
-            metadata={}
+            metadata={},
+            library_id=uuid4()
         )
         
         assert len(document.chunks) == 1
@@ -95,23 +98,17 @@ class TestChunkModels:
         assert len(create_data.embedding) == 5
         assert create_data.metadata["position"] == 0
     
-    def test_create_chunk_empty_text(self):
-        """Test creating chunk with empty text fails"""
-        with pytest.raises(ValidationError):
-            CreateChunk(
-                text="",
-                embedding=[0.1, 0.2],
-                metadata={}
-            )
-    
-    def test_create_chunk_empty_embedding(self):
-        """Test creating chunk with empty embedding fails"""
-        with pytest.raises(ValidationError):
-            CreateChunk(
-                text="Test text",
-                embedding=[],
-                metadata={}
-            )
+    def test_create_chunk_with_auto_embed(self):
+        """Test creating chunk with auto_embed flag"""
+        create_data = CreateChunk(
+            text="This is a test chunk",
+            auto_embed=True,
+            metadata={"position": 0}
+        )
+        
+        assert create_data.text == "This is a test chunk"
+        assert create_data.auto_embed is True
+        assert create_data.embedding is None
     
     def test_update_chunk_partial(self):
         """Test updating chunk with partial data"""

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from uuid import UUID
-from app.models import Document, CreateDocument, UpdateDocument
+from app.models import Document, DocumentCreate, DocumentUpdate
 from app.repositories.library_repository import LibraryRepository
 from app.core.dependencies import get_library_repository
 
@@ -8,7 +8,7 @@ router = APIRouter()
 
 @router.post("/", response_model=Document, status_code=status.HTTP_201_CREATED)
 async def create_document(
-    document_data: CreateDocument,
+    document_data: DocumentCreate,
     repo: LibraryRepository = Depends(get_library_repository)
 ):
     """Create a new document in a library"""
@@ -41,7 +41,7 @@ async def get_documents_by_library(library_id: UUID, repo: LibraryRepository = D
 @router.put("/{document_id}", response_model=Document)
 async def update_document(
     document_id: UUID,
-    update_data: UpdateDocument,
+    update_data: DocumentUpdate,
     repo: LibraryRepository = Depends(get_library_repository)
 ):
     """Update a document"""
