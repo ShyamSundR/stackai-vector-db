@@ -13,7 +13,7 @@ docker-compose up --build -d
 echo "Waiting for startup..."
 sleep 10
 echo "=== HEALTH CHECK - VERIFYING COHERE INTEGRATION ==="
-curl -s http://localhost:8000/health | jq .
+curl -s http://localhost:8000/health | python -m json.tool
 
 # Step 3: Show API Documentation
 echo "=== API DOCUMENTATION AVAILABLE AT ==="
@@ -28,8 +28,8 @@ echo "Creating library..."
 LIBRARY_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/libraries/ \
   -H "Content-Type: application/json" \
   -d '{"name": "Auto-Embedding Demo", "metadata": {"embedding_type": "cohere", "model": "embed-english-v3.0"}}')
-echo $LIBRARY_RESPONSE | jq .
-LIBRARY_ID=$(echo $LIBRARY_RESPONSE | jq -r .id)
+echo $LIBRARY_RESPONSE | python -m json.tool
+LIBRARY_ID=$(echo $LIBRARY_RESPONSE | python -c "import sys, json; print(json.load(sys.stdin)['id'])")
 echo "Library ID: $LIBRARY_ID"
 
 # Create Document
@@ -37,8 +37,8 @@ echo "Creating document..."
 DOCUMENT_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/documents/ \
   -H "Content-Type: application/json" \
   -d "{\"title\": \"NLP Research Papers\", \"library_id\": \"$LIBRARY_ID\", \"metadata\": {\"domain\": \"artificial_intelligence\"}}")
-echo $DOCUMENT_RESPONSE | jq .
-DOCUMENT_ID=$(echo $DOCUMENT_RESPONSE | jq -r .id)
+echo $DOCUMENT_RESPONSE | python -m json.tool
+DOCUMENT_ID=$(echo $DOCUMENT_RESPONSE | python -c "import sys, json; print(json.load(sys.stdin)['id'])")
 echo "Document ID: $DOCUMENT_ID"
 
 # Step 5: AUTO-EMBEDDING DEMONSTRATION
@@ -49,27 +49,60 @@ echo "Adding chunk 1 with auto-embedding..."
 CHUNK1_RESPONSE=$(curl -s -X POST "http://localhost:8000/api/v1/chunks/?document_id=$DOCUMENT_ID" \
   -H "Content-Type: application/json" \
   -d '{"text": "Transformers revolutionized natural language processing with self-attention mechanisms", "metadata": {"paper": "attention_is_all_you_need"}}')
-echo $CHUNK1_RESPONSE | jq '{id: .id, text: .text, embedding_dimensions: (.embedding | length), auto_generated: true}'
+echo $CHUNK1_RESPONSE | python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(json.dumps({
+        'id': data.get('id'),
+        'text': data.get('text'),
+        'embedding_dimensions': len(data.get('embedding', [])),
+        'auto_generated': True
+    }, indent=2))
+except: pass
+"
 
 echo "Adding chunk 2 with auto-embedding..."
 CHUNK2_RESPONSE=$(curl -s -X POST "http://localhost:8000/api/v1/chunks/?document_id=$DOCUMENT_ID" \
   -H "Content-Type: application/json" \
   -d '{"text": "BERT introduced bidirectional encoder representations for language understanding", "metadata": {"paper": "bert"}}')
-echo $CHUNK2_RESPONSE | jq '{id: .id, text: .text, embedding_dimensions: (.embedding | length), auto_generated: true}'
+echo $CHUNK2_RESPONSE | python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(json.dumps({
+        'id': data.get('id'),
+        'text': data.get('text'),
+        'embedding_dimensions': len(data.get('embedding', [])),
+        'auto_generated': True
+    }, indent=2))
+except: pass
+"
 
 echo "Adding chunk 3 with auto-embedding..."
 CHUNK3_RESPONSE=$(curl -s -X POST "http://localhost:8000/api/v1/chunks/?document_id=$DOCUMENT_ID" \
   -H "Content-Type: application/json" \
   -d '{"text": "GPT models demonstrate the power of autoregressive language modeling at scale", "metadata": {"paper": "gpt"}}')
-echo $CHUNK3_RESPONSE | jq '{id: .id, text: .text, embedding_dimensions: (.embedding | length), auto_generated: true}'
+echo $CHUNK3_RESPONSE | python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(json.dumps({
+        'id': data.get('id'),
+        'text': data.get('text'),
+        'embedding_dimensions': len(data.get('embedding', [])),
+        'auto_generated': True
+    }, indent=2))
+except: pass
+"
 
 # Step 6: Index Building
 echo "=== BUILDING VECTOR INDEX ==="
 echo "Building brute-force index..."
-curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/index?index_type=brute_force" | jq .
+curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/index?index_type=brute_force" | python -m json.tool
 
 echo "Building KD-tree index..."
-curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/index?index_type=kdtree" | jq .
+curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/index?index_type=kdtree" | python -m json.tool
 
 # Step 7: AUTO-EMBEDDING SEARCH (The Magic!)
 echo "=== AUTO-EMBEDDING SEARCH DEMONSTRATION ==="
@@ -78,34 +111,100 @@ echo "Search 1: Natural language query about attention mechanisms..."
 curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/search" \
   -H "Content-Type: application/json" \
   -d '{"query_text": "attention mechanisms in neural networks", "k": 3, "similarity_metric": "cosine"}' | \
-  jq '.[] | {similarity: .similarity, text: .chunk.text, paper: .chunk.metadata.paper}'
+  python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for item in data:
+        print(json.dumps({
+            'similarity': item.get('similarity'),
+            'text': item.get('chunk', {}).get('text'),
+            'paper': item.get('chunk', {}).get('metadata', {}).get('paper')
+        }, indent=2))
+except: pass
+"
 
 echo "Search 2: Query about language understanding..."
 curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/search" \
   -H "Content-Type: application/json" \
   -d '{"query_text": "bidirectional language representation", "k": 2, "similarity_metric": "cosine"}' | \
-  jq '.[] | {similarity: .similarity, text: .chunk.text, paper: .chunk.metadata.paper}'
+  python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for item in data:
+        print(json.dumps({
+            'similarity': item.get('similarity'),
+            'text': item.get('chunk', {}).get('text'),
+            'paper': item.get('chunk', {}).get('metadata', {}).get('paper')
+        }, indent=2))
+except: pass
+"
 
 echo "Search 3: Query about generative models..."
 curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/search" \
   -H "Content-Type: application/json" \
   -d '{"query_text": "generative language models", "k": 2, "similarity_metric": "euclidean"}' | \
-  jq '.[] | {similarity: .similarity, text: .chunk.text, paper: .chunk.metadata.paper}'
+  python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for item in data:
+        print(json.dumps({
+            'similarity': item.get('similarity'),
+            'text': item.get('chunk', {}).get('text'),
+            'paper': item.get('chunk', {}).get('metadata', {}).get('paper')
+        }, indent=2))
+except: pass
+"
 
 # Step 8: CRUD Operations Testing
 echo "=== TESTING CRUD OPERATIONS ==="
 
 # List all libraries
 echo "All libraries:"
-curl -s http://localhost:8000/api/v1/libraries/ | jq '.[] | {id: .id, name: .name, document_count: (.documents | length)}'
+curl -s http://localhost:8000/api/v1/libraries/ | python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for item in data:
+        print(json.dumps({
+            'id': item.get('id'),
+            'name': item.get('name'),
+            'document_count': len(item.get('documents', []))
+        }, indent=2))
+except: pass
+"
 
 # Get library chunks
 echo "Chunks in library:"
-curl -s "http://localhost:8000/api/v1/chunks/library/$LIBRARY_ID" | jq '.[] | {id: .id, text: .text, has_embedding: (.embedding != null)}'
+curl -s "http://localhost:8000/api/v1/chunks/library/$LIBRARY_ID" | python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for item in data:
+        print(json.dumps({
+            'id': item.get('id'),
+            'text': item.get('text'),
+            'has_embedding': item.get('embedding') is not None
+        }, indent=2))
+except: pass
+"
 
 # Get documents in library
 echo "Documents in library:"
-curl -s "http://localhost:8000/api/v1/libraries/$LIBRARY_ID" | jq '.documents[] | {id: .id, title: .title, chunk_count: (.chunks | length)}'
+curl -s "http://localhost:8000/api/v1/libraries/$LIBRARY_ID" | python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for doc in data.get('documents', []):
+        print(json.dumps({
+            'id': doc.get('id'),
+            'title': doc.get('title'),
+            'chunk_count': len(doc.get('chunks', []))
+        }, indent=2))
+except: pass
+"
 
 # Step 9: Advanced Metadata Filtering
 echo "=== ADVANCED METADATA FILTERING ==="
@@ -128,14 +227,31 @@ echo "Search with metadata filtering (domain = NLP):"
 curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/search" \
   -H "Content-Type: application/json" \
   -d '{"query_text": "neural networks", "k": 5, "similarity_metric": "cosine", "metadata_filter": {"paper": {"$exists": true}}}' | \
-  jq '.[] | {similarity: .similarity, text: .chunk.text, metadata: .chunk.metadata}'
+  python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for item in data:
+        print(json.dumps({
+            'similarity': item.get('similarity'),
+            'text': item.get('chunk', {}).get('text'),
+            'metadata': item.get('chunk', {}).get('metadata')
+        }, indent=2))
+except: pass
+"
 
 # Step 10: Performance and Health Monitoring
 echo "=== SYSTEM MONITORING ==="
 
 # Check embedding service status
 echo "Embedding service status:"
-curl -s http://localhost:8000/health | jq .services.embedding_service
+curl -s http://localhost:8000/health | python -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(json.dumps(data.get('services', {}).get('embedding_service'), indent=2))
+except: pass
+"
 
 # Step 11: Cleanup Demo (Optional)
 echo "=== CLEANUP COMMANDS (OPTIONAL) ==="
