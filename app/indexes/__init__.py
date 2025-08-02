@@ -7,4 +7,4 @@ __all__ = [
     "VectorSearchResult", 
     "BruteForceIndex",
     "KDTreeIndex"
-] 
+]
