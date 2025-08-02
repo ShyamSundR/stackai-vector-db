@@ -1,69 +1,86 @@
 from fastapi import APIRouter, HTTPException, Depends, status
+from typing import List
 from uuid import UUID
 from app.models import Document, DocumentCreate, DocumentUpdate
-from app.repositories.library_repository import LibraryRepository
-from app.core.dependencies import get_library_repository
+from app.services.document_service import DocumentService
+from app.core.dependencies import get_document_service
 
 router = APIRouter()
 
 @router.post("/", response_model=Document, status_code=status.HTTP_201_CREATED)
 async def create_document(
     document_data: DocumentCreate,
-    repo: LibraryRepository = Depends(get_library_repository)
+    service: DocumentService = Depends(get_document_service)
 ):
-    """Create a new document in a library"""
-    library = repo.get_library(document_data.library_id)
-    if not library:
+    """Create a new document"""
+    try:
+        document = await service.create_document(document_data)
+        return document
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="Library not found"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
-    return repo.create_document(document_data)
 
 @router.get("/{document_id}", response_model=Document)
 async def get_document(
     document_id: UUID,
-    repo: LibraryRepository = Depends(get_library_repository)
+    service: DocumentService = Depends(get_document_service)
 ):
     """Get a document by ID"""
-    document = repo.get_document(document_id)
+    document = await service.get_document(document_id)
     if not document:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found"
         )
     return document
 
-@router.get("/library/{library_id}", response_model=list[Document])
-async def get_documents_by_library(library_id: UUID, repo: LibraryRepository = Depends(get_library_repository)):
-    return repo.get_library_documents(library_id)
+@router.get("/", response_model=List[Document])
+async def get_documents_by_library(
+    library_id: UUID,
+    service: DocumentService = Depends(get_document_service)
+):
+    """Get all documents in a library"""
+    try:
+        return await service.get_documents_by_library(library_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
 
 @router.put("/{document_id}", response_model=Document)
 async def update_document(
     document_id: UUID,
-    update_data: DocumentUpdate,
-    repo: LibraryRepository = Depends(get_library_repository)
+    document_data: DocumentUpdate,
+    service: DocumentService = Depends(get_document_service)
 ):
     """Update a document"""
-    document = repo.get_document(document_id)
-    if not document:
+    try:
+        document = await service.update_document(document_id, document_data)
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+        return document
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="Document not found"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
-    return repo.update_document(document_id, update_data)
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     document_id: UUID,
-    repo: LibraryRepository = Depends(get_library_repository)
+    service: DocumentService = Depends(get_document_service)
 ):
     """Delete a document"""
-    document = repo.get_document(document_id)
-    if not document:
+    success = await service.delete_document(document_id)
+    if not success:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found"
         )
-    repo.delete_document(document_id)
     return None

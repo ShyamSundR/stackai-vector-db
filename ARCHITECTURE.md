@@ -90,24 +90,39 @@ graph TB
 **Key Features**:
 - Automatic OpenAPI documentation generation
 - Request/response validation with Pydantic
+- **Perfect DDD Compliance**: Routers delegate exclusively to services, never repositories
 - Dependency injection for service layers
 - Consistent error handling with proper HTTP status codes
+- Business logic validation handled at service layer
+
+**DDD Architecture Flow**:
+```
+API Request → Router → Service (Business Logic) → Repository (Data) → Response
+```
 
 ### Service Layer (Business Logic)
 
 **Purpose**: Orchestrate business operations and coordinate between components
 
 **Components**:
-- `LibraryService`: Library lifecycle and validation
+- `LibraryService`: Library lifecycle and validation with business rules
 - `DocumentService`: Document operations and library relationships
-- `ChunkService`: Chunk processing with embedding coordination
+- `ChunkService`: Chunk processing with embedding coordination and validation
 - `VectorIndexService`: Index management and search orchestration
 - `EmbeddingService`: Cohere API integration for auto-embedding
 
+**Enhanced Business Logic Features**:
+- **Input Validation**: Name/title length, whitespace handling, content size limits
+- **Business Rules**: Duplicate checking, referential integrity validation
+- **Entity Relationships**: Library-document-chunk hierarchy enforcement
+- **Error Handling**: Comprehensive validation with descriptive error messages
+- **Data Delegation**: Services delegate to repositories, never manage storage directly
+
 **Design Patterns**:
-- **Service Layer Pattern**: Encapsulates business logic
+- **Service Layer Pattern**: Encapsulates business logic and validation
 - **Facade Pattern**: Simplifies complex subsystem interactions
 - **Strategy Pattern**: Pluggable embedding strategies (manual vs auto)
+- **Repository Pattern**: Clean separation between business logic and data access
 
 ### Repository Layer (Data Access)
 

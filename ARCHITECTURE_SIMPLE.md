@@ -1,5 +1,9 @@
 # StackAI Architecture - Quick Reference
 
+**Perfect Domain-Driven Design (DDD) Implementation**
+
+This architecture demonstrates enterprise-grade DDD patterns with clean separation of concerns: API Layer → Service Layer → Repository Layer.
+
 ## Simple Component Diagram
 
 ```ascii
@@ -55,7 +59,7 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Request Flow (Simplified)
+## Request Flow (Perfect DDD Architecture)
 
 ```ascii
 Client Request
@@ -64,28 +68,46 @@ Client Request
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │ FastAPI     │───▶│ Service     │───▶│ Repository  │
 │ Router      │    │ Layer       │    │ (Thread     │
-│ Validation  │    │ Business    │    │  Safe)      │
-│ Serialization│   │ Logic       │    │             │
+│ - Validation│    │ - Business  │    │  Safe)      │
+│ - HTTP      │    │   Logic     │    │ - Data      │
+│ - Serialize │    │ - Validation│    │   Access    │
+│ - Delegate  │    │ - Rules     │    │ - Storage   │
 └─────────────┘    └─────────────┘    └─────────────┘
-                           │                   │
-                           ▼                   │
-                  ┌─────────────┐              │
-                  │ Vector      │              │
-                  │ Index       │              │
-                  │ Search      │              │
-                  └─────────────┘              │
-                           │                   │
-                           ▼                   │
-                  ┌─────────────┐              │
-                  │ Metadata    │              │
-                  │ Filter      │              │
-                  │ Apply       │              │
-                  └─────────────┘              │
-                           │                   │
-                           └───────────────────┘
-                                   │
-                                   ▼
-                              JSON Response
+       │                    │                   │
+       │                    ▼                   │
+       │           ┌─────────────┐              │
+       │           │ Enhanced    │              │
+       │           │ Validation: │              │
+       │           │ - Names     │              │
+       │           │ - Duplicates│              │
+       │           │ - Relations │              │
+       │           │ - Sizes     │              │
+       │           └─────────────┘              │
+       │                    │                   │
+       │                    ▼                   │
+       │           ┌─────────────┐              │
+       │           │ Vector      │              │
+       │           │ Index       │              │
+       │           │ Search      │              │
+       │           └─────────────┘              │
+       │                    │                   │
+       │                    ▼                   │
+       │           ┌─────────────┐              │
+       │           │ Metadata    │              │
+       │           │ Filter      │              │
+       │           │ Apply       │              │
+       │           └─────────────┘              │
+       │                    │                   │
+       │                    └───────────────────┘
+       │                            │
+       ▼                            ▼
+JSON Response ◄─────────────────────────
+
+**Perfect DDD Compliance**:
+- API Layer never calls Repository directly
+- Service Layer contains all business logic
+- Repository Layer handles only data access
+- Clean separation of concerns maintained
 ```
 
 ## Thread Safety Model

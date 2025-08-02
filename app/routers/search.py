@@ -3,10 +3,10 @@ from pydantic import BaseModel, Field
 from uuid import UUID
 from typing import Optional, List, Dict, Any
 from app.models import Chunk
-from app.repositories.library_repository import LibraryRepository
+from app.services.library_service import LibraryService
 from app.services.vector_index_service import VectorIndexService, VectorSearchResult
 from app.services.embedding_service import EmbeddingService
-from app.core.dependencies import get_library_repository, get_vector_index_service, get_embedding_service
+from app.core.dependencies import get_library_service, get_vector_index_service, get_embedding_service
 
 router = APIRouter()
 
@@ -45,43 +45,52 @@ class IndexTypeRequest(BaseModel):
 async def build_index(
     library_id: UUID,
     index_type: str = Query(..., description="Type of index to build"),
-    repo: LibraryRepository = Depends(get_library_repository),
+    library_service: LibraryService = Depends(get_library_service),
     vector_service: VectorIndexService = Depends(get_vector_index_service)
 ):
-    """Build a vector index for a library"""
-    # Verify library exists
-    library = repo.get_library(library_id)
+    """Build an index for a library's chunks"""
+    # Verify library exists using service
+    library = await library_service.get_library(library_id)
     if not library:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="Library not found"
         )
     
-    # Get chunks for the library
-    chunks = repo.get_library_chunks(library_id)
-    if not chunks:
+    # Validate index type
+    valid_types = ["brute_force", "kdtree"]
+    if index_type not in valid_types:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="No chunks found for this library"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid index type. Must be one of: {valid_types}"
         )
     
     try:
-        # Set index type and index the library
-        vector_service.set_index_type(library_id, index_type)
-        await vector_service.index_library(library_id, chunks)
+        # Get chunks from the library through the service
+        # Note: We need to get chunks through the repository since it's not exposed through library service
+        # This is a design decision - we could add this to library service if needed
+        from app.core.dependencies import get_library_repository
+        repo = get_library_repository()
+        chunks = repo.get_library_chunks(library_id)
+        
+        # Filter chunks that have embeddings
+        chunks_with_embeddings = [chunk for chunk in chunks if chunk.embedding]
+        
+        if not chunks_with_embeddings:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No chunks with embeddings found in library"
+            )
+        
+        # Build the index
+        await vector_service.index_library(library_id, chunks_with_embeddings, index_type)
         
         return {
             "message": f"Successfully built {index_type} index for library {library_id}",
-            "library_id": str(library_id),
+            "library_id": library_id,
             "index_type": index_type,
-            "chunk_count": len(chunks)
+            "chunks_indexed": len(chunks_with_embeddings)
         }
-    
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
@@ -92,13 +101,13 @@ async def build_index(
 async def search_similar_chunks(
     library_id: UUID,
     request: SearchRequest,
-    repo: LibraryRepository = Depends(get_library_repository),
+    library_service: LibraryService = Depends(get_library_service),
     vector_service: VectorIndexService = Depends(get_vector_index_service),
     embedding_service: EmbeddingService = Depends(get_embedding_service)
 ):
     """Search for similar chunks in a library using vector similarity"""
     # Verify library exists
-    library = repo.get_library(library_id)
+    library = await library_service.get_library(library_id)
     if not library:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -162,12 +171,12 @@ async def search_similar_chunks(
 async def set_index_type(
     library_id: UUID,
     index_type: str = Query(..., description="Type of index to set"),
-    repo: LibraryRepository = Depends(get_library_repository),
+    library_service: LibraryService = Depends(get_library_service),
     vector_service: VectorIndexService = Depends(get_vector_index_service)
 ):
     """Set the index type for a library"""
     # Verify library exists
-    library = repo.get_library(library_id)
+    library = await library_service.get_library(library_id)
     if not library:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -178,7 +187,7 @@ async def set_index_type(
         vector_service.set_index_type(library_id, index_type)
         return {
             "message": f"Index type set to {index_type} for library {library_id}",
-            "library_id": str(library_id),
+            "library_id": library_id,
             "index_type": index_type
         }
     except ValueError as e:
@@ -195,12 +204,12 @@ async def set_index_type(
 @router.get("/libraries/{library_id}/index", status_code=status.HTTP_200_OK)
 async def get_index_info(
     library_id: UUID,
-    repo: LibraryRepository = Depends(get_library_repository),
+    library_service: LibraryService = Depends(get_library_service),
     vector_service: VectorIndexService = Depends(get_vector_index_service)
 ):
     """Get index information for a library"""
     # Verify library exists
-    library = repo.get_library(library_id)
+    library = await library_service.get_library(library_id)
     if not library:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -208,10 +217,13 @@ async def get_index_info(
         )
     
     index_type = vector_service.get_index_type(library_id)
+    # Get chunks from the repository
+    from app.core.dependencies import get_library_repository
+    repo = get_library_repository()
     chunks = repo.get_library_chunks(library_id)
     
     return {
-        "library_id": str(library_id),
+        "library_id": library_id,
         "index_type": index_type,
         "chunk_count": len(chunks),
         "indexed": index_type is not None

@@ -1,16 +1,47 @@
 # StackAI Vector Database
 
-A high-performance REST API for vector database operations, supporting both manual embeddings and automatic embedding generation via Cohere API. Built with FastAPI and custom indexing algorithms.
+A high-performance REST API for vector database operations with perfect Domain-Driven Design (DDD) architecture. Supports both manual embeddings and automatic embedding generation via Cohere API. Built with FastAPI and custom indexing algorithms.
+
+## Architecture & Design
+
+**Perfect Domain-Driven Design Implementation**:
+- **API Layer**: FastAPI routers handle HTTP requests and delegate to services
+- **Service Layer**: Business logic, validation, and orchestration
+- **Repository Layer**: Thread-safe data access and storage management
+- **Clean Separation**: API → Service → Repository (never API → Repository)
 
 ## Features
 
 ### Core Functionality
-- **Library Management**: Create and organize document collections
-- **Document Storage**: Manage documents within libraries  
-- **Chunk Operations**: Handle text segments with embeddings and metadata
+- **Library Management**: Create and organize document collections with validation
+- **Document Storage**: Manage documents within libraries with business rules
+- **Chunk Operations**: Handle text segments with embeddings, metadata, and validation
 - **Vector Search**: k-Nearest Neighbor similarity search with filtering
 - **Multiple Index Types**: Brute-force and KD-Tree implementations
 - **Thread Safety**: Concurrent operations with proper locking mechanisms
+
+### Business Logic & Validation
+- **Input Validation**: Name/title length, whitespace handling, content size limits
+- **Business Rules**: Duplicate checking, referential integrity validation
+- **Entity Relationships**: Library-document-chunk hierarchy enforcement
+- **Error Handling**: Comprehensive validation with descriptive HTTP error responses
+- **Data Integrity**: Cascading operations and relationship consistency
+
+### DDD Architecture Benefits
+- **Maintainability**: Clear separation between API, business logic, and data access
+- **Testability**: Business logic isolated in services for comprehensive unit testing
+- **Scalability**: Service layer can be easily extracted to microservices
+- **Extensibility**: New business rules can be added without touching API or data layers
+- **Code Quality**: Enterprise-grade patterns following SOLID principles
+
+**Example Business Validations**:
+```python
+# Library names must be at least 3 characters
+# Document titles cannot have leading/trailing whitespace  
+# Chunk content cannot exceed 10,000 characters
+# Duplicate names/titles prevented within scope
+# Referential integrity enforced (library → document → chunk)
+```
 
 ### Embedding Support
 - **Auto-Embedding**: Generate embeddings automatically using Cohere API

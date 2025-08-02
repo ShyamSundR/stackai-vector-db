@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-# STACKAI VECTOR DATABASE - COMPLETE AUTO-EMBEDDING DEMO SCRIPT
+# STACKAI VECTOR DATABASE 
 # =============================================================================
 
 # Step 1: Start Docker with Cohere API Keys
@@ -48,19 +48,19 @@ echo "=== AUTO-EMBEDDING WITH COHERE (NO MANUAL EMBEDDINGS!) ==="
 echo "Adding chunk 1 with auto-embedding..."
 CHUNK1_RESPONSE=$(curl -s -X POST "http://localhost:8000/api/v1/chunks/?document_id=$DOCUMENT_ID" \
   -H "Content-Type: application/json" \
-  -d '{"text": "Transformers revolutionized natural language processing with self-attention mechanisms", "auto_embed": true, "metadata": {"paper": "attention_is_all_you_need"}}')
+  -d '{"text": "Transformers revolutionized natural language processing with self-attention mechanisms", "metadata": {"paper": "attention_is_all_you_need"}}')
 echo $CHUNK1_RESPONSE | jq '{id: .id, text: .text, embedding_dimensions: (.embedding | length), auto_generated: true}'
 
 echo "Adding chunk 2 with auto-embedding..."
 CHUNK2_RESPONSE=$(curl -s -X POST "http://localhost:8000/api/v1/chunks/?document_id=$DOCUMENT_ID" \
   -H "Content-Type: application/json" \
-  -d '{"text": "BERT introduced bidirectional encoder representations for language understanding", "auto_embed": true, "metadata": {"paper": "bert"}}')
+  -d '{"text": "BERT introduced bidirectional encoder representations for language understanding", "metadata": {"paper": "bert"}}')
 echo $CHUNK2_RESPONSE | jq '{id: .id, text: .text, embedding_dimensions: (.embedding | length), auto_generated: true}'
 
 echo "Adding chunk 3 with auto-embedding..."
 CHUNK3_RESPONSE=$(curl -s -X POST "http://localhost:8000/api/v1/chunks/?document_id=$DOCUMENT_ID" \
   -H "Content-Type: application/json" \
-  -d '{"text": "GPT models demonstrate the power of autoregressive language modeling at scale", "auto_embed": true, "metadata": {"paper": "gpt"}}')
+  -d '{"text": "GPT models demonstrate the power of autoregressive language modeling at scale", "metadata": {"paper": "gpt"}}')
 echo $CHUNK3_RESPONSE | jq '{id: .id, text: .text, embedding_dimensions: (.embedding | length), auto_generated: true}'
 
 # Step 6: Index Building
@@ -114,11 +114,11 @@ echo "=== ADVANCED METADATA FILTERING ==="
 echo "Adding content with diverse metadata..."
 curl -s -X POST "http://localhost:8000/api/v1/chunks/?document_id=$DOCUMENT_ID" \
   -H "Content-Type: application/json" \
-  -d '{"text": "Convolutional neural networks excel at image recognition tasks", "auto_embed": true, "metadata": {"domain": "computer_vision", "year": 2012, "architecture": "CNN"}}' > /dev/null
+  -d '{"text": "Convolutional neural networks excel at image recognition tasks", "metadata": {"domain": "computer_vision", "year": 2012, "architecture": "CNN"}}' > /dev/null
 
 curl -s -X POST "http://localhost:8000/api/v1/chunks/?document_id=$DOCUMENT_ID" \
   -H "Content-Type: application/json" \
-  -d '{"text": "Recurrent neural networks process sequential data effectively", "auto_embed": true, "metadata": {"domain": "sequence_modeling", "year": 2015, "architecture": "RNN"}}' > /dev/null
+  -d '{"text": "Recurrent neural networks process sequential data effectively", "metadata": {"domain": "sequence_modeling", "year": 2015, "architecture": "RNN"}}' > /dev/null
 
 # Rebuild index with new content
 curl -s -X POST "http://localhost:8000/api/v1/search/libraries/$LIBRARY_ID/index?index_type=brute_force" > /dev/null
@@ -158,14 +158,3 @@ echo ""
 echo " Your StackAI Vector Database is fully functional!"
 echo " API Documentation: http://localhost:8000/docs"
 echo " Try custom searches at: http://localhost:8000/docs#/search"
-
-# Final note
-echo ""
-echo "=== KEY FEATURES DEMONSTRATED ==="
-echo "1. AUTO-EMBEDDING: Just provide text, embeddings generated automatically"
-echo "2. TEXT-BASED SEARCH: Search with natural language, no manual vectors"
-echo "3. COHERE INTEGRATION: State-of-the-art embeddings (embed-english-v3.0)"
-echo "4. DUAL INDEX TYPES: Brute-force and KD-tree algorithms"
-echo "5. METADATA FILTERING: Advanced query capabilities"
-echo "6. FULL CRUD API: Complete document management system"
-echo "7. DOCKER DEPLOYMENT: Production-ready containerization"
