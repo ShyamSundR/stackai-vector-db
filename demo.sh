@@ -1,8 +1,40 @@
 #!/bin/bash
 
 # =============================================================================
-# STACKAI VECTOR DATABASE 
+# STACKAI VECTOR DATABASE DEMO
 # =============================================================================
+
+# Check for required .env file and API key
+if [ ! -f .env ]; then
+    echo "❌ ERROR: .env file not found!"
+    echo ""
+    echo "📋 SETUP REQUIRED:"
+    echo "1. Copy the environment template:"
+    echo "   cp env.example .env"
+    echo ""
+    echo "2. Get your Cohere API key from: https://dashboard.cohere.ai/api-keys"
+    echo ""
+    echo "3. Edit .env and set your API key:"
+    echo "   COHERE_API_KEY=your_actual_api_key_here"
+    echo ""
+    echo "4. Run this demo again: ./demo.sh"
+    exit 1
+fi
+
+# Check if API key is set in .env
+if ! grep -q "^COHERE_API_KEY=.*[^[:space:]]" .env; then
+    echo "❌ ERROR: COHERE_API_KEY not set in .env file!"
+    echo ""
+    echo "📋 SETUP REQUIRED:"
+    echo "1. Get your Cohere API key from: https://dashboard.cohere.ai/api-keys"
+    echo "2. Edit .env and uncomment/set your API key:"
+    echo "   COHERE_API_KEY=your_actual_api_key_here"
+    echo "3. Run this demo again: ./demo.sh"
+    exit 1
+fi
+
+echo "✅ Environment configured!"
+echo ""
 
 # Step 1: Start Docker with Cohere API Keys
 echo "=== STARTING STACKAI WITH COHERE AUTO-EMBEDDING ==="
@@ -263,14 +295,21 @@ echo "docker-compose down"
 
 # Step 12: Summary
 echo "=== DEMO SUMMARY ==="
-echo " Docker started with Cohere integration"
-echo " Auto-embedding working (1024 dimensions)"
-echo " Vector search with text queries "
-echo " Multiple indexing algorithms (brute-force, KD-tree)"
-echo " Advanced metadata filtering"
-echo " CRUD operations for Libraries, Documents, Chunks"
-echo " Health monitoring and statistics"
+echo "✅ Docker started with Cohere integration"
+echo "✅ Auto-embedding working (1024 dimensions)"
+echo "✅ Vector search with text queries"
+echo "✅ Multiple indexing algorithms (brute-force, KD-tree)"
+echo "✅ Advanced metadata filtering"
+echo "✅ CRUD operations for Libraries, Documents, Chunks"
+echo "✅ Health monitoring and statistics"
 echo ""
-echo " Your StackAI Vector Database is fully functional!"
-echo " API Documentation: http://localhost:8000/docs"
-echo " Try custom searches at: http://localhost:8000/docs#/search"
+echo "🎉 Your StackAI Vector Database is fully functional!"
+echo ""
+echo "📖 API Documentation: http://localhost:8000/docs"
+echo "🔍 Try custom searches at: http://localhost:8000/docs#/search"
+echo ""
+echo "💡 Next Steps:"
+echo "- Explore the Swagger UI to test individual endpoints"
+echo "- Check the architecture documentation in ARCHITECTURE.md"
+echo "- Build your own applications using the stackai_sdk"
+echo "- Scale to production with your own data and API keys"
