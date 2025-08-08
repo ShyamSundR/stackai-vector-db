@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.routers import libraries, documents, chunks, search
 from app.services.embedding_service import embedding_service
 
@@ -6,6 +7,20 @@ app = FastAPI(
     title="StackAI Vector Database", 
     description="A vector database API for indexing and searching document chunks with embedding support",
     version="1.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers

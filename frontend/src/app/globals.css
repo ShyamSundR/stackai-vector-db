@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* StackAI theme overrides (keep functionality, change look only) */
+/* Turn Tailwind blue accents into neutral/black brand tone */
+.bg-blue-600 { background-color: #0a0a0a !important; }
+.hover\:bg-blue-700:hover { background-color: #1f2937 !important; }
+.text-blue-600 { color: #0a0a0a !important; }
+.hover\:text-blue-700:hover { color: #1f2937 !important; }
+.bg-blue-50 { background-color: #f5f5f4 !important; }
+.text-blue-900 { color: #0a0a0a !important; }
+.border-blue-200 { border-color: #e5e7eb !important; }
+.focus\:ring-blue-500:focus { --tw-ring-color: #111827 !important; }
+
+/* Buttons */
+.btn { @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2; }
+.btn-primary { @apply btn bg-neutral-900 text-white hover:bg-neutral-800 focus:ring-neutral-800; }
+.btn-secondary { @apply btn bg-neutral-700 text-white hover:bg-neutral-800 focus:ring-neutral-700; }
+.btn-outline { @apply btn border border-neutral-300 text-neutral-800 hover:bg-neutral-50 focus:ring-neutral-800; }
+.btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500; }
+
+.input { @apply block w-full rounded-lg border border-neutral-300 px-3 py-2 placeholder-neutral-400 focus:border-neutral-800 focus:ring-1 focus:ring-neutral-800; }
+
+.card { @apply bg-white rounded-lg shadow-sm border border-neutral-200 p-6; }
+.card-hover { @apply card hover:shadow-md transition-shadow duration-200; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Smooth transitions */
+* { transition: colors 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; }
+
+/* Focus styles */
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #111827; outline-offset: 2px; }
+
+/* Loading spinner */
+.spinner { border: 2px solid #f3f4f6; border-top: 2px solid #111827; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+
+/* Animations */
+.fade-in { animation: fadeIn 0.3s ease-in-out; }
+.slide-up { animation: slideUp 0.3s ease-out; }
+@keyframes fadeIn { from { opacity: 0;} to { opacity: 1;} }
+@keyframes slideUp { from { transform: translateY(10px); opacity: 0;} to { transform: translateY(0); opacity: 1;} } 

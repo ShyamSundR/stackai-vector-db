@@ -1,18 +1,18 @@
 # StackAI Vector Database
 
-A high-performance REST API for vector database operations with perfect Domain-Driven Design (DDD) architecture. Supports both manual embeddings and automatic embedding generation via Cohere API. Built with FastAPI and custom indexing algorithms.
+A high-performance REST API for vector database operations built with clean Domain-Driven Design (DDD) architecture. This project supports both manual embeddings and automatic embedding generation via Cohere API. Built with FastAPI and custom indexing algorithms.
 
-## Architecture & Design
+## What This Project Offers
 
-**Perfect Domain-Driven Design Implementation**:
+**Clean Domain-Driven Design Implementation**:
 - **API Layer**: FastAPI routers handle HTTP requests and delegate to services
 - **Service Layer**: Business logic, validation, and orchestration
 - **Repository Layer**: Thread-safe data access and storage management
 - **Clean Separation**: API → Service → Repository (never API → Repository)
 
-## Features
+## Core Features
 
-### Core Functionality
+### Main Functionality
 - **Library Management**: Create and organize document collections with validation
 - **Document Storage**: Manage documents within libraries with business rules
 - **Chunk Operations**: Handle text segments with embeddings, metadata, and validation
@@ -27,14 +27,14 @@ A high-performance REST API for vector database operations with perfect Domain-D
 - **Error Handling**: Comprehensive validation with descriptive HTTP error responses
 - **Data Integrity**: Cascading operations and relationship consistency
 
-### DDD Architecture Benefits
+### Why DDD Architecture Matters
 - **Maintainability**: Clear separation between API, business logic, and data access
 - **Testability**: Business logic isolated in services for comprehensive unit testing
 - **Scalability**: Service layer can be easily extracted to microservices
 - **Extensibility**: New business rules can be added without touching API or data layers
 - **Code Quality**: Enterprise-grade patterns following SOLID principles
 
-**Example Business Validations**:
+**Business Validations in Action**:
 ```python
 # Library names must be at least 3 characters
 # Document titles cannot have leading/trailing whitespace  
@@ -55,7 +55,7 @@ A high-performance REST API for vector database operations with perfect Domain-D
 - **Metadata Filtering**: Filter search results by chunk metadata
 - **Dynamic Indexing**: Switch index types and rebuild on demand
 
-### Extra Features (Production Enhancements)
+### Advanced Features
 
 #### 1. Advanced Metadata Filtering
 - **12+ Filter Operators**: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$contains`, `$regex`, `$exists`, `$date_after`, `$date_before`, `$date_range`
@@ -74,7 +74,7 @@ A high-performance REST API for vector database operations with perfect Domain-D
 - **Easy Installation**: `pip install stackai-sdk` (or local setup with `setup.py`)
 - **Rich Examples**: Comprehensive usage examples and documentation
 
-## Quick Start
+## Getting Started
 
 ### Option 1: Docker (Recommended)
 
@@ -213,7 +213,7 @@ for result in results:
     print(f"Score: {result.similarity:.3f} - {result.chunk.text[:100]}")
 ```
 
-## Architecture
+## Architecture Overview
 
 The system follows a layered architecture with clear separation of concerns:
 
@@ -229,7 +229,7 @@ Key design patterns:
 - Strategy pattern for pluggable index algorithms
 - Thread-safe operations with RLock
 
-## Development
+## Development Workflow
 
 ### Running Tests
 ```bash
@@ -291,6 +291,42 @@ Environment variables:
 - Pre-filtering with result expansion for optimal performance
 - Smart operator selection based on data types
 - Lazy evaluation for complex nested conditions
+
+## Frontend Testing Interface
+
+This project includes a modern React frontend for comprehensive testing and management of the StackAI Vector Database.
+
+### What You Get
+- **Modern UI**: Clean, responsive interface built with Next.js and Tailwind CSS
+- **Complete CRUD Operations**: Manage libraries, documents, and chunks
+- **Advanced Search Testing**: Vector similarity search with metadata filtering
+- **Backup & Rollback**: Create snapshots and restore previous states
+- **Real-time Monitoring**: API health and embedding service status
+- **Testing Tools**: Bulk operations, data generation, and performance testing
+
+### Quick Start
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Run setup script (installs dependencies and configures environment)
+./setup.sh
+
+# Start development server
+npm run dev
+
+# Open browser to http://localhost:3000
+```
+
+### Why This Frontend Helps
+1. **Visual Interface**: Easy to understand and navigate your data
+2. **Backup System**: Test changes safely with rollback capability  
+3. **Bulk Operations**: Import/export large datasets for testing
+4. **Real-time Feedback**: Immediate validation of API operations
+5. **Advanced Filtering**: Test complex metadata filter scenarios
+6. **Index Management**: Compare performance of different index types
+
+For detailed documentation, see [frontend/README.md](frontend/README.md).
 
 ## Contributing
 
